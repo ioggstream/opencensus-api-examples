@@ -1,3 +1,5 @@
 black
 flake8
 autoflake
+nose
+flask-testing

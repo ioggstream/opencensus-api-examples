@@ -1,4 +1,6 @@
+connexion[swagger-ui]
 opencensus
-thrift 
-connexion 
+opencensus-ext-jaeger
+thrift
+connexion
 pyOpenSSL

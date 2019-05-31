@@ -1,0 +1,9 @@
+server:
+  db_url: ''
+  quota:
+    max_files: 100
+    max_file_size: 10_000
+    max_queue_size: 100_000
+
+# public_server: 172.17.0.3:8443
+MONGO_URI: "mongodb://mongo:27017/store_test"
