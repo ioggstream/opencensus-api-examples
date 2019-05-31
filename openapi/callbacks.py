@@ -24,7 +24,7 @@ def check_digest_header():
             status=400, title="Bad Request", detail="Invalid digest value"
         )
 
-    if not d.startswith("sha-256"):
+    if not d.startswith("sha-256="):
         return (
             json.dumps(
                 dict(
@@ -37,3 +37,16 @@ def check_digest_header():
             400,
             {"Want-Digest": "sha-256"},
         )
+
+    if d[8:].encode("ascii") == digest(ret):
+        # Success!
+        return
+
+    default_response = json.dumps(
+        dict(
+            status=400,
+            detail="expected: sha-256=%s" % digest(ret).decode("ascii"),
+            title="bad digest",
+        )
+    )
+    return default_response, 400
