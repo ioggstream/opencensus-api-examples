@@ -13,6 +13,8 @@ def check_digest():
     d = request.headers.get("Digest", "")
     if d.startswith("sha-256"):
         return problem(
-            status=400, detail="expected " + digest(ret), title="bad digest"
+            status=400,
+            detail="expected " + digest(ret).encode("ascii"),
+            title="bad digest",
         )
     return None

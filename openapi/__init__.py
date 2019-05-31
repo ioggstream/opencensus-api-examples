@@ -9,6 +9,7 @@ import gzip
 import json
 from .digest import check_digest
 from flask import Response
+from opencensus.trace import execution_context
 
 
 def decode_content(ret):
@@ -40,10 +41,19 @@ def post_data(data=None):
 def get_status():
     case = randint(0, 10)
     if case < 4:
-        sleep(1)
+        tracer = execution_context.get_opencensus_tracer()
+        with tracer.span(name="parent_span") as parent_span:
+            assert parent_span
+            sleep(1)
+        return problem(status=200, title="Accepted", detail="Async")
     elif case < 8:
-        for i in range(100000):
+        for i in range(5):
             pass
+    else:
+        tracer = execution_context.get_opencensus_tracer()
+        with tracer.span(name="parent_span") as parent_span:
+            assert parent_span
+            raise NotImplementedError
     return problem(status=200, title="OK", detail="API is working normally")
 
 
@@ -55,7 +65,6 @@ def get_echo():  # noqa: E501
 
     :rtype: Timestampa
     """
-
     return {"datetime": str(datetime.datetime.utcnow())}
 
 

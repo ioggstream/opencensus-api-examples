@@ -1,6 +1,7 @@
 connexion[swagger-ui]
 opencensus
 opencensus-ext-jaeger
+opencensus-ext-flask
 thrift
 connexion
 pyOpenSSL

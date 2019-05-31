@@ -1,15 +1,16 @@
 from flask import current_app as app
 from connexion import problem
 from .digest import digest
+import json
 
 
-def add_header(response):
+def add_digest_header(response):
     response.headers["Digest"] = b"sha-256=" + digest(response.data)
     app.logger.warning("Adding digest: %r", response.headers["Digest"])
     return response
 
 
-def check_digest():
+def check_digest_header():
     from flask import request
 
     ret = request.data
@@ -24,9 +25,15 @@ def check_digest():
         )
 
     if not d.startswith("sha-256"):
-        return problem(
-            status=400,
-            detail="expected " + digest(ret),
-            title="bad digest",
-            headers={"Want-Digest": "sha-256"},
+        return (
+            json.dumps(
+                dict(
+                    status=400,
+                    detail="expected: sha-256=%s"
+                    % digest(ret).decode("ascii"),
+                    title="bad digest",
+                )
+            ),
+            400,
+            {"Want-Digest": "sha-256"},
         )

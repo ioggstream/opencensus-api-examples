@@ -5,7 +5,7 @@ from pathlib import Path
 
 import connexion
 import yaml
-from openapi.callbacks import check_digest, add_header
+from openapi.callbacks import check_digest_header, add_digest_header
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -23,7 +23,7 @@ class BaseTestCase(TestCase):
         #  app.app.json_encoder = DataclassEncoder
         zapp.app.config.update(config)
         zapp.add_api("openapi/service-provider.yaml")
-        zapp.app.before_request(check_digest)
-        zapp.app.after_request(add_header)
+        zapp.app.before_request(check_digest_header)
+        zapp.app.after_request(add_digest_header)
 
         return zapp.app
