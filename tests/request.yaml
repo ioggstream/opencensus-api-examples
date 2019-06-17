@@ -1,0 +1,59 @@
+test_requests:
+- request1: &request1
+    name: request1
+    http: |-
+      POST /foo HTTP/1.1
+      Host: example.org
+      Date: Tue, 07 Jun 2014 20:51:35 GMT
+      Content-Type: application/json
+      Digest: SHA-256=X48E9qOokqqrvdts8nOJRJN3OWDUoyWxBf7kbu9DBPE=
+      Content-Length: 18
+
+      {"hello": "world"}
+
+test_rsa:
+- <<: *request1
+  tests:
+  - params:
+      v: draft-cavage-11rpolli
+      keyId: test-rsa
+      algorithm: rsa-256
+      created: 1402170695
+      expires: 1402170697
+      headers: (request-target) (created) (expires) host digest content-type
+    expected_string: |-
+      (v): draft-cavage-11rpolli
+      (request-target): post /foo
+      (created): 1402170695
+      (expires): 1402170697
+      host: example.org
+      digest: SHA-256=X48E9qOokqqrvdts8nOJRJN3OWDUoyWxBf7kbu9DBPE=
+      content-type: application/json
+test_full:
+- <<: *request1
+  tests:
+  - params:
+      v: draft-cavage-11rpolli
+      keyId: test-rsa
+      algorithm: rsa-256
+      created: 1402170695
+      expires: 1402170697
+      headers: (request-target) (created) (expires) host digest content-type
+    expected_string: |-
+
+
+
+
+test_parse_signatures:
+  - <<: *request1
+    test_name: parse_signature_1
+    signature_header: >-
+      Signature: keyId="Test",algorithm="rsa-sha256",created=1402170695,expires=1402170699,
+      headers="(request-target) (created) (expires) host date content-type digest content-length",
+      signature="vSdrb+dS3EceC9bcwHSo4MlyKS59iFIrhgYkz8+oVLEEzmYZZvRs8rgOp+63LEM3v+MFHB32NfpB2bEKBIvB1q52LaEUHFv120V01IL+TAD48XaERZFukWgHoBTLMhYS2Gb51gWxpeIq8knRmPnYePbF5MOkR0Zkly4zKH7s1dE="
+  - <<: *request1
+    test_name: parse_signature_hs2019
+    signature_header: >-
+      keyId="rsa-key-1", v="draft-cavage-11rpolli",algorithm="hs2019",created=1402170695,expires=1402170697,
+      headers="(request-target) (created) host digest content-length",
+      signature="vSdrb+dS3EceC9bcwHSo4MlyKS59iFIrhgYkz8+oVLEEzmYZZvRs8rgOp+63LEM3v+MFHB32NfpB2bEKBIvB1q52LaEUHFv120V01IL+TAD48XaERZFukWgHoBTLMhYS2Gb51gWxpeIq8knRmPnYePbF5MOkR0Zkly4zKH7s1dE="
