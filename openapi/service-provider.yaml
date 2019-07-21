@@ -161,6 +161,8 @@ paths:
              ecco il body
            headers:
              <<: *ratelimit-headers
+             Signature:
+               $ref: '#/components/headers/Signature'
            content:
              application/json:
                schema:
@@ -177,7 +179,12 @@ components:
       $ref: 'https://teamdigitale.github.io/openapi/0.0.5/definitions.yaml#/headers/X-RateLimit-Reset'
     Retry-After:
       $ref: 'https://teamdigitale.github.io/openapi/0.0.5/definitions.yaml#/headers/Retry-After'
-
+    Signature:
+      description: A draft-cavage http-signature http header
+      explode: true
+      allowEmptyValue: false
+      schema:
+        $ref: '#/components/schemas/SignatureHeader'
   responses:
     # Predefined error codes for this API
     400BadRequest:
@@ -192,6 +199,21 @@ components:
       $ref: 'https://teamdigitale.github.io/openapi/0.0.5/definitions.yaml#/responses/default'
 
   schemas:
+    SignatureHeader:
+      properties:
+        signature:
+          type: string
+          example: Foo
+        headers:
+          type: string
+        algorithm:
+          type: string
+        keyId:
+          type: string
+        created:
+          type: number
+        expires:
+          type: number
     Problem:
       $ref: 'https://teamdigitale.github.io/openapi/0.0.5/definitions.yaml#/schemas/Problem'
     Timestamps:

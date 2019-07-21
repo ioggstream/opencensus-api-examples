@@ -52,6 +52,6 @@ if __name__ == "__main__":
 
     zapp.app.before_request(check_digest_header)
     zapp.app.after_request(add_digest_header)
-    middleware = FlaskMiddleware(zapp.app, exporter=je)
-    middleware.init_app(zapp.app)
+    #middleware = FlaskMiddleware(zapp.app, exporter=je)
+    #middleware.init_app(zapp.app)
     zapp.run(host="0.0.0.0", debug=True, port=8443, ssl_context="adhoc")

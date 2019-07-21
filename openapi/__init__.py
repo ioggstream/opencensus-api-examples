@@ -1,12 +1,15 @@
 import datetime
+from functools import wraps
 from os.path import join as pjoin
 from random import randint
-from time import sleep
+from time import sleep, time
 
 from connexion import problem
-from flask import request
+from flask import request, after_this_request
 import gzip
 import json
+
+from openapi.callbacks import add_digest_header
 from .digest import check_digest
 from flask import Response
 from opencensus.trace import execution_context
@@ -57,17 +60,6 @@ def get_status():
     return problem(status=200, title="OK", detail="API is working normally")
 
 
-def get_echo():  # noqa: E501
-    """Ritorna un timestamp in formato RFC5424.
-
-    Ritorna un timestamp in formato RFC5424 prendendola dal server attuale.  # noqa: E501
-
-
-    :rtype: Timestampa
-    """
-    return {"datetime": str(datetime.datetime.utcnow())}
-
-
 def index():
     return {
         "message": "Welcome to the Jungle 1",
@@ -79,3 +71,37 @@ def index():
             },
         ],
     }
+
+from .signatures import Signature
+from flask import request
+
+
+def get_echo():  # noqa: E501
+    """Ritorna un timestamp in formato RFC5424.
+
+    Ritorna un timestamp in formato RFC5424 prendendola dal server attuale.  # noqa: E501
+
+
+    :rtype: Timestampa
+    """
+    @after_this_request
+    def foo(response):
+        add_digest_header(response)
+        return response
+    @after_this_request
+    def sign(response):
+        s_data = {
+            "v": "draft-cavage-11rpolli",
+            "keyId": "test-rsa",
+            "algorithm": "rsa-256",
+            "created": int(time()),
+            "expires": int(time() + 2),
+            "headers": "(request-target) (created) (expires) content-type"
+        }
+        ss = Signature(**s_data)
+        signature = ss.sign(request, response)
+        response.headers['Signature'] = signature
+        response.headers['Signature-String'] = ss.signature_string(request, response).replace("\n", "%")
+        return response
+
+    return {"datetime": str(datetime.datetime.utcnow())}

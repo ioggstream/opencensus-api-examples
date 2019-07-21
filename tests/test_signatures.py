@@ -9,7 +9,6 @@ import yaml
 
 from requests.structures import CaseInsensitiveDict
 
-from dataclasses import dataclass
 from flask import request, Flask
 from nose.tools import assert_equal, assert_dict_contains_subset, assert_is_not_none
 
@@ -57,7 +56,7 @@ def yaml_read(fpath):
 
 
 def test_parse_signature():
-    tests = yaml.read("request.yaml")
+    tests = yaml_read("request.yaml")
     for t in tests['test_parse_signatures']:
         signature_header = t['signature_header']
         signature = parse_signature_header(signature_header.strip("Signature: "))
@@ -68,50 +67,3 @@ def test_parse_signature():
         assert signature["expires"]
         assert signature["created"]
         yield assert_is_not_none, t['test_name']
-
-
-@dataclass
-class Signature(object):
-    keyId: str
-    algorithm: str
-    created: int
-    v: str = None
-    expires: float = None
-    headers: str = "created"
-    signature: str = None
-
-    def validate(self):
-        if not self.headers:
-            raise ValueError("At least one headers should be specified")
-
-    def signature_string(self, request):
-        expected_string = f"(v): {self.v}\n" if self.v else ""
-        expected_string += (
-            f"(request-target): {request.method.lower()} {request.path}\n"
-            f"(created): {self.created}\n"
-            f"(expires): {self.expires}\n"
-        )
-        for h in self.headers.split(" "):
-            if h in "(request-target) (v) (created) (expires)".split(" "):
-                print(f"skipping {h}")
-                continue
-            expected_string += f"{h.lower()}: {request.headers[h]}\n"
-
-        # Remove last CR
-        return expected_string[:-1]
-
-    def resolve_key(self):
-        """Override this method for resolving keys.
-        """
-        self.encryption_key = load_key(Path("rsa.key").read_bytes())
-        return self.encryption_key
-
-    def sign(self, request):
-        signature_string = self.signature_string(request)
-        s = sign_string(self.resolve_key(), signature_string)
-        return (
-            f'Signature: keyId="{self.keyId}", algorithm="{self.algorithm}"'
-            f", created={self.created}, expires={self.expires}"
-            f', v="{self.v}", headers="{self.headers}"'
-            f', signature="{s}"'
-        )

@@ -5,3 +5,4 @@ opencensus-ext-flask
 thrift
 connexion
 pyOpenSSL
+cryptography

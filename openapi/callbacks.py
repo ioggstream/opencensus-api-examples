@@ -5,8 +5,10 @@ import json
 
 
 def add_digest_header(response):
-    response.headers["Digest"] = b"sha-256=" + digest(response.data)
-    app.logger.warning("Adding digest: %r", response.headers["Digest"])
+    response.direct_passthrough = False
+    if response.data:
+        response.headers["Digest"] = b"sha-256=" + digest(response.data)
+        app.logger.warning("Adding digest: %r", response.headers["Digest"])
     return response
 
 
