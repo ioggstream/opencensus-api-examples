@@ -103,7 +103,7 @@ def get_echo():  # noqa: E501
         signature = ss.sign(request, response)
         response.headers["Signature"] = signature
         response.headers["Signature-String"] = ss.signature_string(
-            request, response
+            request.method, request.path, response.headers
         ).replace("\n", "%")
         return response
 

@@ -2,6 +2,7 @@ import re
 from base64 import decodebytes, encodebytes
 from collections import Counter
 from pathlib import Path
+from urllib.parse import urlparse
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
@@ -10,7 +11,6 @@ from cryptography.hazmat.primitives.serialization import (
     load_pem_private_key,
     load_pem_public_key,
 )
-
 from dataclasses import dataclass
 
 
@@ -165,16 +165,15 @@ class Signature(object):
 
         self._validate_digest(message_headers)
 
-    def signature_string(self, request, response=None):
+    def signature_string(self, method, path, message_headers):
+
         expected_string = f"(v): {self.v}\n" if self.v else ""
         expected_string += (
-            f"(request-target): {request.method.lower()} {request.path}\n"
+            f"(request-target): {method.lower()} {path}\n"
             f"(created): {self.created}\n"
             f"(expires): {self.expires}\n"
         )
 
-        # Get and validate message headers if digest is present.
-        message_headers = response.headers if response else request.headers
         self.validate_headers(message_headers)
 
         for h in self.headers.split(" "):
@@ -201,7 +200,17 @@ class Signature(object):
         return self.decryption_key
 
     def sign(self, request, response=None):
-        signature_string = self.signature_string(request, response)
+        # Get path from flask.Request | requests.Request
+        path = (
+            request.path
+            if hasattr(request, "path")
+            else urlparse(request.url).path
+        )
+
+        message_headers = response.headers if response else request.headers
+        signature_string = self.signature_string(
+            request.method, path, message_headers
+        )
         s = sign_string(self.resolve_key(), signature_string)
         return (
             f'keyId="{self.keyId}", algorithm="{self.algorithm}"'
@@ -210,10 +219,12 @@ class Signature(object):
             f', signature="{s}"'
         )
 
-    def verify(self):
+    def verify(self, request, response=None):
         if not self.signature:
             raise ValueError("Missing signature")
 
         pubkey = self.resolve_cert()
         if not pubkey:
             raise ValueError("Cannot retrieve pubkey")
+        # signature_bytes =
+        # verify_string(pubkey, self.signature_string(requests, response), )

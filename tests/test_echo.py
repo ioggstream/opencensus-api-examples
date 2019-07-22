@@ -51,7 +51,9 @@ class TestApp(BaseTestCase):
 
         p = parse_signature_header(s_header)
         ss = Signature(**p)
-        sstring = ss.signature_string(request, response)
+        sstring = ss.signature_string(
+            request.method, request.path, response.headers
+        )
         verify_string(
             load_pubkey(Path("rsa.pub").read_bytes()), sstring, p["signature"]
         )
@@ -71,7 +73,9 @@ class TestApp(BaseTestCase):
 
         p = parse_signature_header(s_header)
         ss = Signature(**p)
-        sstring = ss.signature_string(request, response)
+        sstring = ss.signature_string(
+            request.method, request.path, response.headers
+        )
         verify_string(
             load_pubkey(Path("rsa.pub").read_bytes()),
             sstring + "1",

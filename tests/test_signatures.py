@@ -49,9 +49,11 @@ def test_create_signature_string():
                 ss = Signature(**s_data)
                 ret = ss.sign(request)
 
-                p = parse_signature_header(ret[10:])
+                p = parse_signature_header(ret)
                 assert_dict_contains_subset(s_data, p)
-                sstring = ss.signature_string(request)
+                sstring = ss.signature_string(
+                    request.method, request.path, request.headers
+                )
                 assert_equal(t["expected_string"], sstring)
 
 
