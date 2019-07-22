@@ -1,14 +1,17 @@
-from flask import current_app as app
-from connexion import problem
-from .digest import digest
 import json
+
+from connexion import problem
+from flask import current_app as app
+
+from .digest import digest
 
 
 def add_digest_header(response):
-    response.direct_passthrough = False
-    if response.data:
-        response.headers["Digest"] = b"sha-256=" + digest(response.data)
-        app.logger.warning("Adding digest: %r", response.headers["Digest"])
+    response.direct_passthrough = (
+        False
+    )  # FIXME shouldn't use this, but a proper Flask interface.
+    response.headers["Digest"] = b"sha-256=" + digest(response.data)
+    app.logger.warning("Adding digest: %r", response.headers["Digest"])
     return response
 
 

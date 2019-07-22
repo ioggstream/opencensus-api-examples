@@ -1,6 +1,7 @@
 import re
 from base64 import decodebytes, encodebytes
 from collections import Counter
+from pathlib import Path
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
@@ -10,15 +11,14 @@ from cryptography.hazmat.primitives.serialization import (
     load_pem_public_key,
 )
 
-from pathlib import Path
 from dataclasses import dataclass
 
 
 def format_parameter(k, v):
-    if k == 'created':
+    if k == "created":
         return int(v)
-    if k == 'expires':
-        return float(v) if '.' in v else int(v)
+    if k == "expires":
+        return float(v) if "." in v else int(v)
     if isinstance(v, str):
         return v.strip('"')
     return v
@@ -31,7 +31,10 @@ def parse_signature_header(s):
     :return: a dict representing the Signature parameters
     """
     if s.startswith("Signature:"):
-        raise ValueError("You should pass the Signature header value, not the whole header string.")
+        raise ValueError(
+            "You should pass the Signature header value,"
+            " not the whole header string."
+        )
 
     parameters = re.findall(r'(?:[^\s,"]|"(?:\\.|[^"])*")+', s)
     parameters = [x.split("=", 1) for x in parameters]
@@ -43,9 +46,7 @@ def parse_signature_header(s):
         raise ValueError("Duplicate headers %r" % c)
 
     # TODO validate parameters' content.
-    return {
-        k: format_parameter(k, v) for k, v in parameters
-    }
+    return {k: format_parameter(k, v) for k, v in parameters}
 
 
 def serialize_signature(signature_parameters):
@@ -128,8 +129,6 @@ def verify_bytes(public_key, signature_bytes: bytes, b64_signature: str):
     return True
 
 
-
-
 @dataclass
 class Signature(object):
     keyId: str
@@ -140,9 +139,31 @@ class Signature(object):
     headers: str = "created"
     signature: str = None
 
-    def validate(self):
+    def _validate_digest(self, message_headers):
+        unsigned_headers = {k.lower() for k in message_headers.keys()} - set(
+            self.headers.split(" ")
+        )
+
+        # the following logic is only valid with signatures
+        if "signature" not in unsigned_headers:
+            return True
+        if "digest" not in message_headers:
+            return True
+
+        if "content-type" in unsigned_headers:
+            raise ValueError("content-type should be signed")
+
+        if "content-encoding" in unsigned_headers:
+            raise ValueError("content-encoding should be signed")
+
+        if "digest" in unsigned_headers:
+            raise ValueError("You should not send an unsigned digest")
+
+    def validate_headers(self, message_headers=None):
         if not self.headers:
             raise ValueError("At least one headers should be specified")
+
+        self._validate_digest(message_headers)
 
     def signature_string(self, request, response=None):
         expected_string = f"(v): {self.v}\n" if self.v else ""
@@ -151,7 +172,11 @@ class Signature(object):
             f"(created): {self.created}\n"
             f"(expires): {self.expires}\n"
         )
+
+        # Get and validate message headers if digest is present.
         message_headers = response.headers if response else request.headers
+        self.validate_headers(message_headers)
+
         for h in self.headers.split(" "):
             if h in "(request-target) (v) (created) (expires)".split(" "):
                 print(f"skipping {h}")
@@ -169,6 +194,12 @@ class Signature(object):
         self.encryption_key = load_key(Path("rsa.key").read_bytes())
         return self.encryption_key
 
+    def resolve_cert(self):
+        """Override this method for resolving public keys.
+        """
+        self.decryption_key = load_pubkey(Path("rsa.pub").read_bytes())
+        return self.decryption_key
+
     def sign(self, request, response=None):
         signature_string = self.signature_string(request, response)
         s = sign_string(self.resolve_key(), signature_string)
@@ -178,3 +209,11 @@ class Signature(object):
             f', v="{self.v}", headers="{self.headers}"'
             f', signature="{s}"'
         )
+
+    def verify(self):
+        if not self.signature:
+            raise ValueError("Missing signature")
+
+        pubkey = self.resolve_cert()
+        if not pubkey:
+            raise ValueError("Cannot retrieve pubkey")

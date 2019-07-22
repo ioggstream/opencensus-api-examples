@@ -1,10 +1,9 @@
+from datetime import datetime
 from logging import basicConfig
 from logging.config import dictConfig
 from os.path import isfile
 
 import connexion
-
-from datetime import datetime
 import yaml
 
 # from opencensus.trace.ext.flask.flask_middleware import FlaskMiddleware

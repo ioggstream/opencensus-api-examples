@@ -1,12 +1,11 @@
-from flask_testing import TestCase
-
 import logging
 from pathlib import Path
 
 import connexion
 import yaml
-from openapi.callbacks import check_digest_header, add_digest_header
 
+from flask_testing import TestCase
+from openapi.callbacks import add_digest_header, check_digest_header
 
 logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger()

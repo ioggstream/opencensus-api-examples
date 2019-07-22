@@ -1,7 +1,8 @@
-from hashlib import sha256
 from base64 import encodebytes
-from flask import request
+from hashlib import sha256
+
 from connexion import problem
+from flask import request
 
 
 def digest(b):

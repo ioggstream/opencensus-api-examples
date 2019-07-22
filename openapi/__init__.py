@@ -1,18 +1,19 @@
 import datetime
-from functools import wraps
 from os.path import join as pjoin
 from random import randint
 from time import sleep, time
 
 from connexion import problem
 from flask import request, after_this_request
+from flask import Response
+from opencensus.trace import execution_context
+
 import gzip
 import json
 
 from openapi.callbacks import add_digest_header
 from .digest import check_digest
-from flask import Response
-from opencensus.trace import execution_context
+from .signatures import Signature
 
 
 def decode_content(ret):
@@ -72,9 +73,6 @@ def index():
         ],
     }
 
-from .signatures import Signature
-from flask import request
-
 
 def get_echo():  # noqa: E501
     """Ritorna un timestamp in formato RFC5424.
@@ -84,10 +82,12 @@ def get_echo():  # noqa: E501
 
     :rtype: Timestampa
     """
+
     @after_this_request
     def foo(response):
         add_digest_header(response)
         return response
+
     @after_this_request
     def sign(response):
         s_data = {
@@ -96,12 +96,15 @@ def get_echo():  # noqa: E501
             "algorithm": "rsa-256",
             "created": int(time()),
             "expires": int(time() + 2),
-            "headers": "(request-target) (created) (expires) content-type"
+            "headers": "(request-target) (created) "
+            "(expires) content-type digest",
         }
         ss = Signature(**s_data)
         signature = ss.sign(request, response)
-        response.headers['Signature'] = signature
-        response.headers['Signature-String'] = ss.signature_string(request, response).replace("\n", "%")
+        response.headers["Signature"] = signature
+        response.headers["Signature-String"] = ss.signature_string(
+            request, response
+        ).replace("\n", "%")
         return response
 
     return {"datetime": str(datetime.datetime.utcnow())}

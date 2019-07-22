@@ -1,16 +1,20 @@
 from pathlib import Path
+
+import yaml
+from flask import Flask, request
+from nose.tools import (
+    assert_dict_contains_subset,
+    assert_equal,
+    assert_is_not_none,
+)
+from requests.structures import CaseInsensitiveDict
+
 from openapi.signatures import (
+    Signature,
     load_key,
     load_pubkey,
     parse_signature_header,
-    sign_string,
 )
-import yaml
-
-from requests.structures import CaseInsensitiveDict
-
-from flask import request, Flask
-from nose.tools import assert_equal, assert_dict_contains_subset, assert_is_not_none
 
 
 def test_load_key():
@@ -36,9 +40,9 @@ def create_mock_request(trace):
 
 def test_create_signature_string():
     test = yaml_read("request.yaml")
-    for http_trace in test['test_rsa']:
+    for http_trace in test["test_rsa"]:
         trace = http_trace["http"]
-        for t in http_trace['tests']:
+        for t in http_trace["tests"]:
 
             s_data = t["params"]
             with create_mock_request(trace):
@@ -48,7 +52,7 @@ def test_create_signature_string():
                 p = parse_signature_header(ret[10:])
                 assert_dict_contains_subset(s_data, p)
                 sstring = ss.signature_string(request)
-                assert_equal(t['expected_string'], sstring)
+                assert_equal(t["expected_string"], sstring)
 
 
 def yaml_read(fpath):
@@ -57,13 +61,15 @@ def yaml_read(fpath):
 
 def test_parse_signature():
     tests = yaml_read("request.yaml")
-    for t in tests['test_parse_signatures']:
-        signature_header = t['signature_header']
-        signature = parse_signature_header(signature_header.strip("Signature: "))
+    for t in tests["test_parse_signatures"]:
+        signature_header = t["signature_header"]
+        signature = parse_signature_header(
+            signature_header.strip("Signature: ")
+        )
         assert signature["headers"]
         assert signature["signature"]
         assert signature["algorithm"]
         assert signature["keyId"]
         assert signature["expires"]
         assert signature["created"]
-        yield assert_is_not_none, t['test_name']
+        yield assert_is_not_none, t["test_name"]
