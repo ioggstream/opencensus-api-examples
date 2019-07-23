@@ -199,17 +199,9 @@ class Signature(object):
         self.decryption_key = load_pubkey(Path("rsa.pub").read_bytes())
         return self.decryption_key
 
-    def sign(self, request, response=None):
-        # Get path from flask.Request | requests.Request
-        path = (
-            request.path
-            if hasattr(request, "path")
-            else urlparse(request.url).path
-        )
-
-        message_headers = response.headers if response else request.headers
+    def sign(self, method, path, message_headers):
         signature_string = self.signature_string(
-            request.method, path, message_headers
+            method, path, message_headers
         )
         s = sign_string(self.resolve_key(), signature_string)
         return (
@@ -219,12 +211,44 @@ class Signature(object):
             f', signature="{s}"'
         )
 
-    def verify(self, request, response=None):
+    @staticmethod
+    def _get_message_info(request, response=None):
+        # Get path from flask.Request | requests.Request
+        path = (
+            request.path
+            if hasattr(request, "path")
+            else urlparse(request.url).path
+        )
+
+        message_headers = response.headers if response else request.headers
+
+        return request.method, path, message_headers
+
+    def sign_http_message(self, request, response=None):
+        method, path, message_headers = Signature._get_message_info(
+            request, response
+        )
+        return self.sign(method, path, message_headers)
+
+    @staticmethod
+    def verify_http_message(self, request, response=None):
+        method, path, message_headers = Signature._get_message_info(
+            request, response
+        )
+        return self.verify(method, path, message_headers)
+
+    def verify(self, method, path, message_headers):
         if not self.signature:
             raise ValueError("Missing signature")
 
         pubkey = self.resolve_cert()
         if not pubkey:
             raise ValueError("Cannot retrieve pubkey")
-        # signature_bytes =
-        # verify_string(pubkey, self.signature_string(requests, response), )
+
+        signature_bytes = self.signature
+        signature_string = self.signature_string(
+            method, path, message_headers
+        )
+        self.validate_headers(message_headers)
+
+        verify_string(pubkey, signature_string, signature_bytes)

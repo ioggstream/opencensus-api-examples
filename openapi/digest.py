@@ -5,7 +5,7 @@ from connexion import problem
 from flask import request
 
 
-def digest(b):
+def digest(b) -> bytes:
     return encodebytes(sha256(b).digest()).strip()
 
 
@@ -15,7 +15,7 @@ def check_digest():
     if d.startswith("sha-256"):
         return problem(
             status=400,
-            detail="expected " + digest(ret).encode("ascii"),
-            title="bad digest",
+            detail="expected " + digest(ret).decode("ascii") + f" was {d}",
+            title=f"bad digest for {ret.decode('ascii')}",
         )
     return None

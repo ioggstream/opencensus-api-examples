@@ -1,12 +1,39 @@
 import json
 
 from connexion import problem
-from flask import current_app as app, Response
+from flask import current_app as app, Response, request
+from openapi.signatures import Signature
+from time import time
 
 from .digest import digest
 
 
+def sign(response):
+    if response.status_code > 299:
+        return response
+
+    s_data = {
+        "v": "draft-cavage-11rpolli",
+        "keyId": "test-rsa",
+        "algorithm": "rsa-256",
+        "created": int(time()),
+        "expires": int(time() + 2),
+        "headers": "(request-target) (created) "
+        "(expires) content-type digest",
+    }
+    ss = Signature(**s_data)
+    signature = ss.sign_http_message(request, response)
+    response.headers["Signature"] = signature
+    response.headers["Signature-String"] = ss.signature_string(
+        request.method, request.path, response.headers
+    ).replace("\n", "%")
+    return response
+
+
 def add_digest_header(message):
+    if message.status_code > 299:
+        return message
+
     if isinstance(message, Response):
         message.direct_passthrough = (
             False

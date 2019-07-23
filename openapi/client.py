@@ -7,7 +7,12 @@ from dataclasses import dataclass
 from requests import Request, Session
 import json
 from time import time
+
+from requests.structures import CaseInsensitiveDict
+
+from openapi.digest import digest
 from openapi.signatures import Signature, parse_signature_header
+from urllib.parse import urlparse
 
 
 @dataclass
@@ -22,11 +27,22 @@ s = Session()
 MOCK_KID = "foo"
 
 
-def send_request(url, method, signed_headers, payload_body, expires_window=2):
+def send_request(
+    url,
+    method,
+    headers=None,
+    signed_headers=None,
+    payload_body=None,
+    expires_window=2,
+):
     from openapi.callbacks import digest
 
-    headers = {}
-    request = Request(method, url, headers, data=payload_body)
+    request = Request(
+        method,
+        url,
+        headers=CaseInsensitiveDict(headers or {}),
+        data=payload_body,
+    )
 
     if method not in ("GET", "HEAD", "DELETE"):
         request.headers["Digest"] = b"sha-256=" + digest(
@@ -43,43 +59,65 @@ def send_request(url, method, signed_headers, payload_body, expires_window=2):
             created=int(created),
             expires=created + expires_window,
         )
-        request["Signature"] = signature.sign(request)
-        request["Signature-String"] = signature.signature_string(
-            request
-        ).replace(b"\n", "%")
+        request.headers["Signature"] = signature.sign_http_message(request)
+        request.headers["Signature-String"] = signature.signature_string(
+            method, urlparse(url).path, request.headers
+        ).replace("\n", "%")
     prepared_request = request.prepare()
     response = s.send(prepared_request, verify=0)
 
     return response
 
 
+def check_digest_header(content, headers):
+    digest_value = headers.get("digest")
+    if not digest_value:
+        return
+
+    digest_value = digest_value.replace("sha-256=", "")
+    assert digest(content).decode("ascii") == digest_value, digest(content)
+
+
+def check_signature_header(method, path, headers):
+    signature_value = headers.get("signature")
+    if not signature_value:
+        return
+
+    shash = parse_signature_header(signature_value)
+    signature = Signature(**shash)
+    signature.verify(method, path, headers)
+
+
 def test_get():
-    url, method = "https://localhost:8443/datetime/v1/echo", "GET"
+    echo_path = "/datetime/v1/echo"
+    url, method = "https://localhost:8443" + echo_path, "GET"
     signed_headers = "(request-target) (created) (expires)"
     payload_body = None
-    response = send_request(url, method, signed_headers, payload_body)
+    response = send_request(
+        url, method, signed_headers=signed_headers, payload_body=payload_body
+    )
 
-    digest = response.headers.get("digest")
-    if method in ("GET", "HEAD", "DELETE"):
-        assert not digest, f"Digest should not be sent on {method} requests"
+    check_digest_header(response.content, response.headers)
 
-    signature = response.headers.get("signature")
-    shash = parse_signature_header(signature)
-    signature = Signature(**shash)
-    signature.verify()
-    raise NotImplementedError
+    check_signature_header(method, echo_path, response.headers)
 
 
 def test_post():
-    url, method = "https://localhost:8443/datetime/v1/echo", "GET"
-    signed_headers = "(request-target) (created) (expires) digest"
+    data_path = "/datetime/v1/data"
+
+    url, method = "https://localhost:8443" + data_path, "POST"
+    signed_headers = (
+        "(request-target) (created) (expires) digest content-type"
+    )
     payload_body = json.dumps({"a": 1}).encode()
-    response = send_request(url, method, signed_headers, payload_body)
-
-    digest = response.headers.get("digest")
-    if method in ("GET", "HEAD", "DELETE"):
-        assert not digest, f"Digest should not be sent on {method} requests"
-
-    assert digest(response.data) == digest, digest(response.data)
+    response = send_request(
+        url,
+        method,
+        headers={"content-type": "application/json"},
+        signed_headers=signed_headers,
+        payload_body=payload_body,
+    )
+    check_digest_header(response.content, response.headers)
+    check_signature_header(method, data_path, response.headers)
 
     raise NotImplementedError

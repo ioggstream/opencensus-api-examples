@@ -1,7 +1,8 @@
 import datetime
+from functools import wraps
 from os.path import join as pjoin
 from random import randint
-from time import sleep, time
+from time import sleep
 
 from connexion import problem
 from flask import request, after_this_request
@@ -11,9 +12,7 @@ from opencensus.trace import execution_context
 import gzip
 import json
 
-from openapi.callbacks import add_digest_header
-from .digest import check_digest
-from .signatures import Signature
+from openapi.callbacks import add_digest_header, sign, check_digest_header
 
 
 def decode_content(ret):
@@ -24,10 +23,19 @@ def decode_content(ret):
     return ret
 
 
+def sign_and_co(wrapped):
+    @wraps(wrapped)
+    def tmp(*args, **kwargs):
+        after_this_request(add_digest_header)
+        after_this_request(sign)
+        return wrapped(*args, **kwargs)
+
+    return tmp
+
+
+@sign_and_co
 def post_data(data=None):
-    err = check_digest()
-    if err:
-        return err
+    check_digest_header()
 
     ret = request.data  # request.data
     res = {"ret": repr(ret)}
@@ -74,6 +82,7 @@ def index():
     }
 
 
+@sign_and_co
 def get_echo():  # noqa: E501
     """Ritorna un timestamp in formato RFC5424.
 
@@ -82,29 +91,4 @@ def get_echo():  # noqa: E501
 
     :rtype: Timestampa
     """
-
-    @after_this_request
-    def foo(response):
-        add_digest_header(response)
-        return response
-
-    @after_this_request
-    def sign(response):
-        s_data = {
-            "v": "draft-cavage-11rpolli",
-            "keyId": "test-rsa",
-            "algorithm": "rsa-256",
-            "created": int(time()),
-            "expires": int(time() + 2),
-            "headers": "(request-target) (created) "
-            "(expires) content-type digest",
-        }
-        ss = Signature(**s_data)
-        signature = ss.sign(request, response)
-        response.headers["Signature"] = signature
-        response.headers["Signature-String"] = ss.signature_string(
-            request.method, request.path, response.headers
-        ).replace("\n", "%")
-        return response
-
     return {"datetime": str(datetime.datetime.utcnow())}

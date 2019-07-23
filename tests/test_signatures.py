@@ -47,7 +47,7 @@ def test_create_signature_string():
             s_data = t["params"]
             with create_mock_request(trace):
                 ss = Signature(**s_data)
-                ret = ss.sign(request)
+                ret = ss.sign_http_message(request)
 
                 p = parse_signature_header(ret)
                 assert_dict_contains_subset(s_data, p)
@@ -55,6 +55,11 @@ def test_create_signature_string():
                     request.method, request.path, request.headers
                 )
                 assert_equal(t["expected_string"], sstring)
+
+                check_ss = Signature(**p)
+                check_ss.verify(request.method, request.path, request.headers)
+                headers = dict(**request.headers)
+                assert headers
 
 
 def yaml_read(fpath):

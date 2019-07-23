@@ -21,6 +21,14 @@ x-commons:
       $ref: '#/components/responses/503ServiceUnavailable'
     default:
       $ref: '#/components/responses/default'
+  signature-headers: &signature-headers
+    Signature:
+      $ref: '#/components/headers/Signature'
+    Digest:
+      $ref: '#/components/headers/Digest'
+  plist: &plist
+  - $ref: '#/components/parameters/SignatureHeader'
+  - $ref: '#/components/parameters/DigestHeader'
 
 openapi: 3.0.0
 info:
@@ -115,6 +123,7 @@ paths:
           #   nel Nuovo modello di interoperabilità.
           headers:
             <<: *ratelimit-headers
+            <<: *signature-headers
           content:
             application/json:
               schema:
@@ -150,6 +159,7 @@ paths:
         ritorna il payload ricevuto col digest
         associato
       operationId: openapi.post_data
+      parameters: *plist
       requestBody:
         content:
           application/json:
@@ -161,8 +171,7 @@ paths:
              ecco il body
            headers:
              <<: *ratelimit-headers
-             Signature:
-               $ref: '#/components/headers/Signature'
+             <<: *signature-headers
            content:
              application/json:
                schema:
@@ -184,7 +193,12 @@ components:
       explode: true
       allowEmptyValue: false
       schema:
-        $ref: '#/components/schemas/SignatureHeader'
+        $ref: '#/components/schemas/Signature'
+    Digest:
+      description: Digest header
+      allowEmptyValue: false
+      schema:
+        type: string
   responses:
     # Predefined error codes for this API
     400BadRequest:
@@ -198,8 +212,23 @@ components:
     default:
       $ref: 'https://teamdigitale.github.io/openapi/0.0.5/definitions.yaml#/responses/default'
 
-  schemas:
+  parameters:
     SignatureHeader:
+      name: Signature
+      in: header
+      schema:
+        $ref: '#/components/schemas/Signature'
+    DigestHeader:
+      name: Digest
+      in: header
+      schema:
+        $ref: '#/components/schemas/Digest'
+
+  schemas:
+    Digest:
+      type: string
+      pattern: sha-256=.+
+    Signature:
       properties:
         signature:
           type: string
